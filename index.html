@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>מערכת שליטה - סנסי</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; text-align: center; background: #f4f4f9; }
+        #panel { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+        .room-box { background: #e8f4fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .room-box input { font-size: 20px; padding: 10px; width: 200px; text-align: center; border: 2px solid #3498db; border-radius: 5px; }
+        .buttons-container { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+        .btn-flip { padding: 12px 20px; font-size: 18px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-random { background: #9b59b6; } .btn-etz { background: #27ae60; } .btn-pali { background: #e67e22; }
+        .link-box { background: #fdf2e9; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px dashed #e67e22; }
+        #obs-link { width: 100%; padding: 10px; margin-top: 10px; direction: ltr; font-size: 14px; box-sizing: border-box; }
+        
+        /* OBS */
+        #obs { display: none; height: 100vh; align-items: center; justify-content: center; flex-direction: column; }
+        .coin-container { perspective: 1000px; width: 200px; height: 200px; opacity: 0; transition: opacity 0.5s; }
+        .coin { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 3s cubic-bezier(0.25, 1, 0.5, 1); }
+        .face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; color: #5c4000; border: 6px solid #b8860b; background: gold; }
+        .back { transform: rotateY(180deg); }
+        #result { font-size: 50px; font-weight: bold; margin-top: 20px; opacity: 0; transition: opacity 0.5s; }
+    </style>
+</head>
+<body>
+
+    <div id="panel">
+        <h1>לוח פיקוד - הסטרים של סנסי</h1>
+        <div class="room-box">
+            🔑 <b>מילת קוד סודית:</b><br>
+            <input type="text" id="room-id" value="sensi_secret_123" oninput="updateLink()">
+        </div>
+
+        <div class="buttons-container">
+            <button class="btn-flip btn-etz" onclick="flip('עץ')">עץ</button>
+            <button class="btn-flip btn-random" onclick="flip('random')">אקראי</button>
+            <button class="btn-flip btn-pali" onclick="flip('פלי')">פלי</button>
+        </div>
+
+        <div class="link-box">
+            <b>הקישור ל-OBS (לסנסי):</b>
+            <input type="text" id="obs-link" readonly onclick="this.select()">
+        </div>
+    </div>
+
+    <div id="obs">
+        <div class="coin-container" id="cc"><div class="coin" id="coin"><div class="face front">עץ</div><div class="face back">פלי</div></div></div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+     const params = new URLSearchParams(window.location.search);
+        if (params.get('mode') === 'obs') {
+            document.getElementById('panel').style.display = 'none';
+            document.getElementById('obs').style.display = 'flex';
+            const room = params.get('room');
+            const eventSource = new EventSource(`https://ntfy.sh/${room}/sse`);
+            eventSource.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                if (data.event === 'message') playAnimation(data.message);
+            };
+            function playAnimation(res) {
+                const cc = document.getElementById('cc'), coin = document.getElementById('coin'), r = document.getElementById('result');
+                cc.style.opacity = '1'; r.style.opacity = '0';
+                let rot = 1800 + (res === 'פלי' ? 180 : 0);
+                coin.style.transform = `rotateY(${rot}deg)`;
+                setTimeout(() => { 
+                    r.innerText = res + '!'; 
+                    r.style.opacity = '1'; 
+                    // כאן קורה הקסם: 2000 זה 2 שניות בדיוק
+                    setTimeout(() => { cc.style.opacity = '0'; r.style.opacity = '0'; }, 2000);
+                }, 3000);
+            }
+        } else {
+            function updateLink() {
+                const room = document.getElementById('room-id').value.trim();
+                const url = window.location.href.split('?')[0];
+                document.getElementById('obs-link').value = `${url}?mode=obs&room=${room}`;
+            }
+            updateLink();
+            function flip(choice) {
+                const room = document.getElementById('room-id').value.trim();
+                let res = choice === 'random' ? (Math.random() < 0.5 ? 'עץ' : 'פלי') : choice;
+                fetch(`https://ntfy.sh/${room}`, { method: 'POST', body: res });
+            }
+        }
+    </script>
+</body>
+</html>
